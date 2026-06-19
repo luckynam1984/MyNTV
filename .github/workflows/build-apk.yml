@@ -27,6 +27,15 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Write local.properties
+        run: |
+          cat > local.properties << 'EOF'
+          SUPABASE_URL=https://tesvawybtfapbewjemmh.supabase.co
+          SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlc3Zhd3lidGZhcGJld2plbW1oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NzgwMTEsImV4cCI6MjA5NzQ1NDAxMX0.c0wimWZVjLwwl1KDnCeG2AdoI2eDtQKdg-yXxsDASUw
+          NUVIO_SUPABASE_URL=https://tesvawybtfapbewjemmh.supabase.co
+          NUVIO_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlc3Zhd3lidGZhcGJld2plbW1oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NzgwMTEsImV4cCI6MjA5NzQ1NDAxMX0.c0wimWZVjLwwl1KDnCeG2AdoI2eDtQKdg-yXxsDASUw
+          EOF
+
       - name: Build APK
         run: ./gradlew assembleFullDebug
 
