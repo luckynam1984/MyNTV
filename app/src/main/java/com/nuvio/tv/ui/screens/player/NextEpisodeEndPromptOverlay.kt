@@ -17,7 +17,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,6 +38,9 @@ import androidx.compose.ui.zIndex
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.nuvio.tv.R
+import kotlinx.coroutines.delay
+
+private const val AUTOPLAY_COUNTDOWN_SECONDS = 10
 
 @Composable
 fun NextEpisodeEndPromptOverlay(
@@ -48,10 +54,20 @@ fun NextEpisodeEndPromptOverlay(
     val focusManager = LocalFocusManager.current
     val nextEpisodeText = nextEpisodeEndPromptLabel(nextEpisode)
 
+    var countdownSec by remember(nextEpisode.videoId) { mutableIntStateOf(AUTOPLAY_COUNTDOWN_SECONDS) }
+
     LaunchedEffect(nextEpisode.videoId) {
         focusManager.clearFocus(force = true)
         repeat(3) { withFrameNanos { } }
         runCatching { continueFocusRequester.requestFocus() }
+    }
+
+    LaunchedEffect(nextEpisode.videoId) {
+        while (countdownSec > 0) {
+            delay(1000L)
+            countdownSec--
+        }
+        onContinue()
     }
 
     Box(
@@ -108,7 +124,7 @@ fun NextEpisodeEndPromptOverlay(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 DialogButton(
-                    text = stringResource(R.string.player_next_episode_prompt_yes),
+                    text = "${stringResource(R.string.player_next_episode_prompt_yes)} ($countdownSec)",
                     onClick = onContinue,
                     isPrimary = true,
                     modifier = Modifier
