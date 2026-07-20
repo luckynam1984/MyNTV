@@ -37,6 +37,8 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -102,6 +104,16 @@ fun GridContentCard(
             modifier = Modifier
                 .width(posterCardStyle.width)
                 .height(posterCardStyle.height)
+                .then(
+                    if (onLongPress != null) {
+                        Modifier.semantics {
+                            onLongClick {
+                                onLongPress()
+                                true
+                            }
+                        }
+                    } else Modifier
+                )
                 .then(
                     if (focusRequester != null) Modifier.focusRequester(focusRequester)
                     else Modifier

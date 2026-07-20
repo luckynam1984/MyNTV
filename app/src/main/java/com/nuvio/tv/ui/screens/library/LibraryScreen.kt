@@ -99,6 +99,7 @@ private enum class LibraryViewMode {
 @Composable
 private fun localizedTypeLabel(key: String): String = when (key.lowercase()) {
     LibraryTypeTab.ALL_KEY -> stringResource(R.string.library_type_all)
+    "series", "tv" -> stringResource(R.string.type_anime)
     else -> localizedContentType(key)
 }
 

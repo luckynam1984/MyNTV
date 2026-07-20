@@ -69,6 +69,8 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.ContentScale
@@ -1187,6 +1189,12 @@ private fun ModernCarouselCard(
                 .fillMaxWidth()
                 .height(cardHeight)
                 .focusRequester(focusRequester)
+                .semantics {
+                    onLongClick {
+                        onLongPress()
+                        true
+                    }
+                }
                 .onFocusChanged {
                     isFocused = it.isFocused
                     onFocusStateChanged(it.isFocused)

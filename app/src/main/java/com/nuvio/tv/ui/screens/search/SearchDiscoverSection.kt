@@ -107,7 +107,10 @@ internal fun DiscoverSection(
     }
 
     val localContext = LocalContext.current
-    fun localizedTypeLabel(type: String): String = localizedContentType(localContext, type)
+    fun localizedTypeLabel(type: String): String = when (type.lowercase().trim()) {
+        "series", "tv" -> localContext.getString(R.string.type_anime)
+        else -> localizedContentType(localContext, type)
+    }
 
     val availableTypes = remember(uiState.discoverCatalogs) {
         uiState.discoverCatalogs.map { it.type }.distinct()

@@ -43,7 +43,6 @@ import com.nuvio.tv.ui.screens.settings.TmdbSettingsScreen
 import com.nuvio.tv.ui.screens.stream.StreamScreen
 import com.nuvio.tv.ui.screens.home.ContinueWatchingItem
 import com.nuvio.tv.ui.screens.account.AuthSignInScreen
-import com.nuvio.tv.ui.screens.account.AuthQrSignInScreen
 import com.nuvio.tv.ui.screens.cast.CastDetailScreen
 import com.nuvio.tv.ui.screens.profile.ProfileSelectionMode
 import com.nuvio.tv.ui.screens.profile.ProfileSelectionScreen
@@ -1192,7 +1191,7 @@ fun NuvioNavHost(
         }
 
         composable(Screen.Account.route) {
-            AuthQrSignInScreen(
+            AuthSignInScreen(
                 onBackPress = { navController.popBackStack() }
             )
         }
@@ -1200,13 +1199,12 @@ fun NuvioNavHost(
         composable(Screen.AuthSignIn.route) {
             AuthSignInScreen(
                 onBackPress = { navController.popBackStack() },
-                onNavigateToQrSignIn = { navController.navigate(Screen.AuthQrSignIn.route) },
                 onSuccess = { navController.popBackStack() }
             )
         }
 
         composable(Screen.AuthQrSignIn.route) {
-            AuthQrSignInScreen(
+            AuthSignInScreen(
                 onBackPress = { navController.popBackStack() }
             )
         }

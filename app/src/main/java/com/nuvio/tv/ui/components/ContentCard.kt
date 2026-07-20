@@ -45,6 +45,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
@@ -274,6 +276,16 @@ fun ContentCard(
             },
             modifier = Modifier
                 .fillMaxWidth()
+                .then(
+                    if (onLongPress != null) {
+                        Modifier.semantics {
+                            onLongClick {
+                                onLongPress()
+                                true
+                            }
+                        }
+                    } else Modifier
+                )
                 .onFocusChanged { state ->
                     val focusedNow = state.isFocused
                     if (needsFocusState) {

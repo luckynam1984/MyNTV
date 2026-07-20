@@ -5,83 +5,402 @@ package com.nuvio.tv.ui.screens.account
 import com.nuvio.tv.ui.theme.NuvioTheme
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.tv.material3.Button
 import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
-import androidx.compose.ui.res.stringResource
 import com.nuvio.tv.R
+import com.nuvio.tv.domain.model.AuthState
 
 @Composable
 fun AuthSignInScreen(
     onBackPress: () -> Unit = {},
-    onNavigateToQrSignIn: () -> Unit = {},
-    onSuccess: () -> Unit = {}
+    onContinue: (() -> Unit)? = null,
+    onSuccess: () -> Unit = {},
+    viewModel: AccountViewModel = hiltViewModel()
 ) {
+    val uiState by viewModel.uiState.collectAsState()
+    val fullAccount = uiState.authState as? AuthState.FullAccount
+    val isSignedIn = fullAccount != null
+    val isOnboardingMode = onContinue != null
+
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var onboardingTransitionHandled by remember(isOnboardingMode) { mutableStateOf(false) }
+
     BackHandler { onBackPress() }
 
+    LaunchedEffect(isOnboardingMode, isSignedIn) {
+        if (!isOnboardingMode || onboardingTransitionHandled) return@LaunchedEffect
+        if (isSignedIn) {
+            onboardingTransitionHandled = true
+            onContinue.invoke()
+        }
+    }
+
     Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
+        modifier = Modifier.fillMaxSize()
     ) {
-        Column(
+        Row(
             modifier = Modifier
-                .fillMaxWidth(0.5f)
-                .background(
-                    color = NuvioTheme.colors.BackgroundElevated,
-                    shape = RoundedCornerShape(20.dp)
-                )
-                .padding(NuvioTheme.spacing.xxl),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .fillMaxSize()
+                .padding(horizontal = NuvioTheme.spacing.xxxl, vertical = 28.dp),
+            horizontalArrangement = Arrangement.spacedBy(36.dp)
         ) {
-            Text(
-                text = stringResource(R.string.auth_signin_title),
-                style = MaterialTheme.typography.headlineSmall,
-                color = NuvioTheme.colors.TextPrimary,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            Text(
-                text = stringResource(R.string.auth_signin_tv_disabled),
-                style = MaterialTheme.typography.bodyMedium,
-                color = NuvioTheme.colors.TextSecondary,
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(22.dp))
-            Button(
-                onClick = onNavigateToQrSignIn,
-                colors = ButtonDefaults.colors(
-                    containerColor = NuvioTheme.colors.Secondary,
-                    focusedContainerColor = NuvioTheme.colors.SecondaryVariant,
-                    contentColor = NuvioTheme.colors.OnSecondary,
-                    focusedContentColor = NuvioTheme.colors.OnSecondaryVariant
-                ),
-                shape = ButtonDefaults.shape(RoundedCornerShape(50)),
-                modifier = Modifier.fillMaxWidth()
+            Column(
+                modifier = Modifier
+                    .weight(0.45f)
+                    .fillMaxHeight(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Image(
+                    painter = painterResource(id = R.drawable.app_logo_wordmark),
+                    contentDescription = stringResource(R.string.cd_nuvio),
+                    modifier = Modifier
+                        .fillMaxWidth(0.85f)
+                        .height(60.dp),
+                    contentScale = ContentScale.Fit
+                )
+                Spacer(modifier = Modifier.height(22.dp))
+                Text(
+                    text = stringResource(R.string.auth_signin_title),
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = NuvioTheme.colors.TextPrimary,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(NuvioTheme.spacing.md))
+                Text(
+                    text = if (isSignedIn) {
+                        stringResource(R.string.auth_qr_connected)
+                    } else {
+                        stringResource(R.string.auth_email_subtitle)
+                    },
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = NuvioTheme.colors.TextSecondary,
+                    textAlign = TextAlign.Center
+                )
+                if (isSignedIn) {
+                    Spacer(modifier = Modifier.height(NuvioTheme.spacing.lg))
+                    Text(
+                        text = fullAccount.email,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color(0xFF7CFF9B),
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = fullAccount.userId,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = NuvioTheme.colors.TextSecondary,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+
+            Column(
+                modifier = Modifier
+                    .weight(0.55f)
+                    .fillMaxHeight()
+                    .border(NuvioTheme.spacing.hairline, NuvioTheme.colors.Border.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
+                    .background(
+                        NuvioTheme.colors.BackgroundElevated.copy(alpha = 0.35f),
+                        RoundedCornerShape(18.dp)
+                    )
+                    .padding(26.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
             ) {
                 Text(
-                    text = stringResource(R.string.auth_signin_qr_btn),
-                    modifier = Modifier.padding(vertical = NuvioTheme.spacing.xs),
-                    fontWeight = FontWeight.Medium
+                    text = stringResource(R.string.auth_qr_account_login),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = NuvioTheme.colors.TextPrimary
                 )
+
+                if (isSignedIn && !isOnboardingMode) {
+                    Text(
+                        text = stringResource(R.string.auth_qr_synced_data),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = NuvioTheme.colors.TextSecondary,
+                        textAlign = TextAlign.Center
+                    )
+                    AccountConnectedStatsStrip(
+                        stats = uiState.connectedStats,
+                        isLoading = uiState.isStatsLoading
+                    )
+                } else if (isSignedIn && isOnboardingMode) {
+                    StatusPill(
+                        text = stringResource(R.string.auth_qr_finishing),
+                        containerColor = NuvioTheme.colors.BackgroundCard,
+                        contentColor = NuvioTheme.colors.TextSecondary
+                    )
+                } else {
+                    Text(
+                        text = stringResource(R.string.account_signin_create_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = NuvioTheme.colors.TextSecondary,
+                        textAlign = TextAlign.Center
+                    )
+
+                    InputField(
+                        value = email,
+                        onValueChange = { email = it.trim() },
+                        placeholder = stringResource(R.string.auth_email_placeholder),
+                        keyboardType = KeyboardType.Email,
+                        imeAction = ImeAction.Next
+                    )
+                    InputField(
+                        value = password,
+                        onValueChange = { password = it },
+                        placeholder = stringResource(R.string.auth_password_placeholder),
+                        keyboardType = KeyboardType.Password,
+                        isPassword = true,
+                        imeAction = ImeAction.Done
+                    )
+
+                    if (!uiState.error.isNullOrBlank()) {
+                        StatusPill(
+                            text = uiState.error!!,
+                            containerColor = Color(0x33C62828),
+                            contentColor = Color(0xFFFF6E6E)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (isSignedIn) {
+                        Button(
+                            onClick = { viewModel.signOut() },
+                            enabled = !uiState.isLoading,
+                            colors = ButtonDefaults.colors(
+                                containerColor = NuvioTheme.colors.BackgroundCard,
+                                focusedContainerColor = Color.White,
+                                contentColor = NuvioTheme.colors.TextPrimary,
+                                focusedContentColor = Color.Black,
+                                disabledContainerColor = NuvioTheme.colors.BackgroundCard.copy(alpha = 0.55f)
+                            )
+                        ) {
+                            Text(stringResource(R.string.account_sign_out))
+                        }
+                    } else {
+                        Button(
+                            onClick = {
+                                if (email.isNotBlank() && password.isNotBlank()) {
+                                    viewModel.signIn(email, password)
+                                }
+                            },
+                            enabled = !uiState.isLoading,
+                            colors = ButtonDefaults.colors(
+                                containerColor = NuvioTheme.colors.Secondary,
+                                focusedContainerColor = NuvioTheme.colors.SecondaryVariant,
+                                contentColor = NuvioTheme.colors.OnSecondary,
+                                focusedContentColor = NuvioTheme.colors.OnSecondaryVariant,
+                                disabledContainerColor = NuvioTheme.colors.BackgroundCard.copy(alpha = 0.55f)
+                            )
+                        ) {
+                            Text(
+                                if (uiState.isLoading) {
+                                    stringResource(R.string.auth_qr_please_wait)
+                                } else {
+                                    stringResource(R.string.auth_signin_title)
+                                }
+                            )
+                        }
+                        Button(
+                            onClick = {
+                                if (email.isNotBlank() && password.isNotBlank()) {
+                                    viewModel.signUp(email, password)
+                                }
+                            },
+                            enabled = !uiState.isLoading,
+                            colors = ButtonDefaults.colors(
+                                containerColor = NuvioTheme.colors.BackgroundCard,
+                                focusedContainerColor = Color.White,
+                                contentColor = NuvioTheme.colors.TextPrimary,
+                                focusedContentColor = Color.Black,
+                                disabledContainerColor = NuvioTheme.colors.BackgroundCard.copy(alpha = 0.55f)
+                            )
+                        ) {
+                            Text(stringResource(R.string.auth_create_account_btn))
+                        }
+                    }
+
+                    Button(
+                        onClick = {
+                            if (onContinue != null) {
+                                onContinue()
+                            } else {
+                                onBackPress()
+                            }
+                        },
+                        colors = ButtonDefaults.colors(
+                            containerColor = NuvioTheme.colors.BackgroundCard,
+                            focusedContainerColor = Color.White,
+                            contentColor = NuvioTheme.colors.TextPrimary,
+                            focusedContentColor = Color.Black
+                        )
+                    ) {
+                        Text(
+                            if (onContinue != null) {
+                                if (isSignedIn) stringResource(R.string.auth_qr_continue) else stringResource(R.string.auth_qr_continue_without_account)
+                            } else {
+                                stringResource(R.string.auth_qr_back)
+                            }
+                        )
+                    }
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun StatusPill(
+    text: String,
+    containerColor: Color,
+    contentColor: Color
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(NuvioTheme.spacing.hairline, NuvioTheme.colors.Border.copy(alpha = 0.35f), RoundedCornerShape(NuvioTheme.radii.md))
+            .background(containerColor, RoundedCornerShape(NuvioTheme.radii.md))
+            .padding(horizontal = NuvioTheme.spacing.md, vertical = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall,
+            color = contentColor,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.wrapContentHeight()
+        )
+    }
+}
+
+@Composable
+private fun AccountConnectedStatsStrip(
+    stats: AccountConnectedStats?,
+    isLoading: Boolean
+) {
+    val values = if (isLoading) {
+        listOf("...", "...", "...", "...")
+    } else {
+        listOf(
+            (stats?.addons ?: 0).toString(),
+            (stats?.plugins ?: 0).toString(),
+            (stats?.library ?: 0).toString(),
+            (stats?.watchProgress ?: 0).toString()
+        )
+    }
+    val labels = listOf(
+        stringResource(R.string.account_stat_addons),
+        stringResource(R.string.account_stat_plugins),
+        stringResource(R.string.account_stat_library),
+        stringResource(R.string.account_stat_progress)
+    )
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(NuvioTheme.spacing.hairline)
+                .background(NuvioTheme.colors.Border.copy(alpha = 0.8f))
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            repeat(values.size) { index ->
+                AccountStatItem(
+                    value = values[index],
+                    label = labels[index],
+                    modifier = Modifier.weight(1f)
+                )
+                if (index != values.lastIndex) {
+                    Box(
+                        modifier = Modifier
+                            .height(44.dp)
+                            .width(NuvioTheme.spacing.hairline)
+                            .background(NuvioTheme.colors.Border.copy(alpha = 0.75f))
+                    )
+                }
+            }
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(NuvioTheme.spacing.hairline)
+                .background(NuvioTheme.colors.Border.copy(alpha = 0.8f))
+        )
+    }
+}
+
+@Composable
+private fun AccountStatItem(
+    value: String,
+    label: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.padding(vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleMedium,
+            color = NuvioTheme.colors.TextPrimary,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(NuvioTheme.spacing.xxs))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = NuvioTheme.colors.TextSecondary,
+            textAlign = TextAlign.Center
+        )
     }
 }

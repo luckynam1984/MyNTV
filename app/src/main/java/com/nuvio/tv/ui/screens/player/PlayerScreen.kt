@@ -82,7 +82,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -444,6 +447,12 @@ fun PlayerScreen(
             .background(Color.Black)
             .focusRequester(containerFocusRequester)
             .focusable()
+            // Touch devices: tap on the video toggles the control overlay
+            .pointerInput(Unit) {
+                detectTapGestures {
+                    viewModel.onEvent(PlayerEvent.OnToggleControls)
+                }
+            }
             .onPreviewKeyEvent { keyEvent ->
                 if (
                     keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_BACK ||
@@ -1904,6 +1913,12 @@ private fun PlayerControlsProgressBarHost(
         onSeekCommit = {
             viewModel.onEvent(PlayerEvent.OnCommitPreviewSeek)
         },
+        onSeekToFraction = { fraction ->
+            val duration = playbackTimeline.duration
+            if (duration > 0) {
+                viewModel.onEvent(PlayerEvent.OnSeekTo((fraction * duration).toLong()))
+            }
+        },
         focusRequester = focusRequester,
         upFocusRequester = upFocusRequester,
         downFocusRequester = downFocusRequester,
@@ -2012,9 +2027,12 @@ private fun ProgressBar(
     downFocusRequester: FocusRequester? = null,
     onUpKey: (() -> Unit)? = null,
     onFocused: (() -> Unit)? = null,
+    /** Touch devices: called with the tapped/dragged position as a 0..1 fraction. */
+    onSeekToFraction: ((Float) -> Unit)? = null,
     /** Position (ms) up to which content is buffered. Pass 0 to skip the overlay. */
     bufferedPosition: Long = 0L
 ) {
+    val currentOnSeekToFraction by rememberUpdatedState(onSeekToFraction)
     val progress = if (duration > 0) {
         (currentPosition.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
     } else 0f
@@ -2110,6 +2128,34 @@ private fun ProgressBar(
                     }
                 } else {
                     false
+                }
+            }
+            // Touch devices: tap or drag on the bar to seek to that point
+            .pointerInput(onSeekToFraction != null) {
+                if (onSeekToFraction == null) return@pointerInput
+                detectTapGestures { offset ->
+                    if (size.width > 0) {
+                        currentOnSeekToFraction?.invoke((offset.x / size.width).coerceIn(0f, 1f))
+                    }
+                }
+            }
+            .pointerInput(onSeekToFraction != null) {
+                if (onSeekToFraction == null) return@pointerInput
+                var fraction = -1f
+                detectHorizontalDragGestures(
+                    onDragStart = { offset ->
+                        fraction = if (size.width > 0) (offset.x / size.width).coerceIn(0f, 1f) else -1f
+                    },
+                    onDragEnd = {
+                        if (fraction >= 0f) currentOnSeekToFraction?.invoke(fraction)
+                        fraction = -1f
+                    },
+                    onDragCancel = { fraction = -1f }
+                ) { change, _ ->
+                    change.consume()
+                    if (size.width > 0) {
+                        fraction = (change.position.x / size.width).coerceIn(0f, 1f)
+                    }
                 }
             }
             .clip(RoundedCornerShape(3.dp))

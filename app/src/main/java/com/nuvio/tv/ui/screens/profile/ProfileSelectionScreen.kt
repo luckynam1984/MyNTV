@@ -72,6 +72,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -882,6 +884,12 @@ private fun ProfileCard(
                 scaleY = itemScale
             }
             .focusRequester(focusRequester)
+            .semantics {
+                onLongClick {
+                    onLongPress()
+                    true
+                }
+            }
             .onFocusChanged {
                 isFocused = it.isFocused
                 if (it.isFocused) onFocused()

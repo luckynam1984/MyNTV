@@ -80,6 +80,8 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.semantics.getAllSemanticsNodes
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -140,7 +142,7 @@ import com.nuvio.tv.ui.components.NuvioScrollDefaults
 import com.nuvio.tv.ui.components.ProfileAvatarCircle
 import com.nuvio.tv.ui.navigation.NuvioNavHost
 import com.nuvio.tv.ui.navigation.Screen
-import com.nuvio.tv.ui.screens.account.AuthQrSignInScreen
+import com.nuvio.tv.ui.screens.account.AuthSignInScreen
 import com.nuvio.tv.ui.screens.addon.EssentialAddonSetupScreen
 import com.nuvio.tv.ui.screens.profile.ProfileSelectionScreen
 import com.nuvio.tv.ui.theme.NuvioComponents
@@ -494,7 +496,7 @@ class MainActivity : ComponentActivity() {
                         authState !is AuthState.FullAccount &&
                         !onboardingCompletedThisSession
                     ) {
-                        AuthQrSignInScreen(
+                        AuthSignInScreen(
                             onBackPress = {},
                             onContinue = {
                                 lifecycleScope.launch {
@@ -831,6 +833,188 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    // ---- Touch → click bridge for phones/tablets ----------------------------------------
+    // androidx.tv.material3 components are focus/D-pad driven and ignore touch taps.
+    // On a clean tap we hit-test Compose's semantics tree and invoke the OnClick action
+    // of the deepest clickable node under the finger, then cancel the raw touch stream
+    // so foundation-clickable nodes don't fire twice. Scrolling is unaffected.
+
+    private var touchDownX = 0f
+    private var touchDownY = 0f
+    private var touchDownTime = 0L
+    private var touchIsTap = false
+    private var touchLongPressFired = false
+    private val touchHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val touchLongPressRunnable = Runnable {
+        if (touchIsTap && !touchLongPressFired) {
+            touchLongPressFired = true
+            performComposeLongPressAt(touchDownX, touchDownY)
+        }
+    }
+
+    override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
+        when (ev.actionMasked) {
+            android.view.MotionEvent.ACTION_DOWN -> {
+                touchDownX = ev.rawX
+                touchDownY = ev.rawY
+                touchDownTime = ev.eventTime
+                touchIsTap = true
+                touchLongPressFired = false
+                touchHandler.postDelayed(
+                    touchLongPressRunnable,
+                    android.view.ViewConfiguration.getLongPressTimeout().toLong()
+                )
+            }
+            android.view.MotionEvent.ACTION_POINTER_DOWN -> {
+                touchIsTap = false
+                touchHandler.removeCallbacks(touchLongPressRunnable)
+            }
+            android.view.MotionEvent.ACTION_MOVE -> {
+                if (touchIsTap) {
+                    val slop = android.view.ViewConfiguration.get(this).scaledTouchSlop
+                    if (kotlin.math.abs(ev.rawX - touchDownX) > slop ||
+                        kotlin.math.abs(ev.rawY - touchDownY) > slop
+                    ) {
+                        touchIsTap = false
+                        touchHandler.removeCallbacks(touchLongPressRunnable)
+                    }
+                }
+            }
+            android.view.MotionEvent.ACTION_CANCEL -> {
+                touchIsTap = false
+                touchHandler.removeCallbacks(touchLongPressRunnable)
+            }
+            android.view.MotionEvent.ACTION_UP -> {
+                touchHandler.removeCallbacks(touchLongPressRunnable)
+                if (touchLongPressFired) {
+                    // Long press already handled while the finger was down
+                    val cancel = android.view.MotionEvent.obtain(ev)
+                    cancel.action = android.view.MotionEvent.ACTION_CANCEL
+                    super.dispatchTouchEvent(cancel)
+                    cancel.recycle()
+                    return true
+                }
+                val isQuickTap = touchIsTap &&
+                    ev.eventTime - touchDownTime < android.view.ViewConfiguration.getLongPressTimeout()
+                if (isQuickTap && performComposeClickAt(ev.rawX, ev.rawY)) {
+                    // Cancel the stream so nothing else interprets this tap
+                    val cancel = android.view.MotionEvent.obtain(ev)
+                    cancel.action = android.view.MotionEvent.ACTION_CANCEL
+                    super.dispatchTouchEvent(cancel)
+                    cancel.recycle()
+                    return true
+                }
+            }
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+
+    /**
+     * Long press with a finger = long press of the remote's OK button.
+     * We focus the node under the finger, then synthesize the DPAD_CENTER key sequence a
+     * remote produces when held (down, long-press repeat, up) so components using
+     * onPreviewKeyEvent/LongPressKeyTracker react exactly as on TV. If the node exposes a
+     * native OnLongClick semantics action, that is used directly instead.
+     */
+    private fun performComposeLongPressAt(rawX: Float, rawY: Float) {
+        // Prefer a node that natively exposes a long-click action under the finger
+        val longClickNode = findNodeWithActionAt(
+            rawX, rawY, androidx.compose.ui.semantics.SemanticsActions.OnLongClick
+        )
+        if (longClickNode != null) {
+            longClickNode.config.getOrNull(androidx.compose.ui.semantics.SemanticsActions.RequestFocus)
+                ?.action?.invoke()
+            longClickNode.config.getOrNull(androidx.compose.ui.semantics.SemanticsActions.OnLongClick)
+                ?.action?.invoke()
+            return
+        }
+        val target = findClickableNodeAt(rawX, rawY) ?: return
+        target.config.getOrNull(androidx.compose.ui.semantics.SemanticsActions.RequestFocus)
+            ?.action?.invoke()
+        // Give focus a frame to land, then replay a held OK button press directly into
+        // Compose's key pipeline (Activity.dispatchKeyEvent may not reach the focused
+        // Compose node while the device is in touch mode).
+        window?.decorView?.post {
+            val root = findComposeRoot(window?.decorView ?: return@post) ?: return@post
+            val timeout = android.view.ViewConfiguration.getLongPressTimeout().toLong()
+            val now = android.os.SystemClock.uptimeMillis()
+            val downTime = now - timeout - 50
+            val keyCode = android.view.KeyEvent.KEYCODE_DPAD_CENTER
+            root.sendKeyEvent(
+                androidx.compose.ui.input.key.KeyEvent(
+                    android.view.KeyEvent(downTime, downTime, android.view.KeyEvent.ACTION_DOWN, keyCode, 0)
+                )
+            )
+            root.sendKeyEvent(
+                androidx.compose.ui.input.key.KeyEvent(
+                    android.view.KeyEvent(
+                        downTime, now, android.view.KeyEvent.ACTION_DOWN, keyCode, 1, 0,
+                        android.view.KeyCharacterMap.VIRTUAL_KEYBOARD, 0,
+                        android.view.KeyEvent.FLAG_LONG_PRESS
+                    )
+                )
+            )
+            root.sendKeyEvent(
+                androidx.compose.ui.input.key.KeyEvent(
+                    android.view.KeyEvent(downTime, now, android.view.KeyEvent.ACTION_UP, keyCode, 0)
+                )
+            )
+        }
+    }
+
+    private fun performComposeClickAt(rawX: Float, rawY: Float): Boolean {
+        val target = findClickableNodeAt(rawX, rawY) ?: return false
+        // Move focus first so selection state/visuals follow the tap, then click.
+        target.config.getOrNull(androidx.compose.ui.semantics.SemanticsActions.RequestFocus)
+            ?.action?.invoke()
+        return target.config.getOrNull(androidx.compose.ui.semantics.SemanticsActions.OnClick)
+            ?.action?.invoke() ?: false
+    }
+
+    private fun findClickableNodeAt(rawX: Float, rawY: Float): androidx.compose.ui.semantics.SemanticsNode? =
+        findNodeWithActionAt(rawX, rawY, androidx.compose.ui.semantics.SemanticsActions.OnClick)
+
+    private fun findNodeWithActionAt(
+        rawX: Float,
+        rawY: Float,
+        action: androidx.compose.ui.semantics.SemanticsPropertyKey<
+            androidx.compose.ui.semantics.AccessibilityAction<() -> Boolean>>
+    ): androidx.compose.ui.semantics.SemanticsNode? {
+        val root = findComposeRoot(window?.decorView ?: return null) ?: return null
+        val location = IntArray(2)
+        (root as android.view.View).getLocationOnScreen(location)
+        val x = rawX - location[0]
+        val y = rawY - location[1]
+
+        var best: androidx.compose.ui.semantics.SemanticsNode? = null
+        var bestArea = Float.MAX_VALUE
+        for (node in root.semanticsOwner.getAllSemanticsNodes(mergingEnabled = false)) {
+            val config = node.config
+            if (!config.contains(action)) continue
+            if (config.contains(androidx.compose.ui.semantics.SemanticsProperties.Disabled)) continue
+            val b = node.boundsInWindow
+            if (b.width <= 0f || b.height <= 0f) continue
+            if (x < b.left || x > b.right || y < b.top || y > b.bottom) continue
+            val area = b.width * b.height
+            if (area < bestArea) {
+                bestArea = area
+                best = node
+            }
+        }
+        return best
+    }
+
+    private fun findComposeRoot(view: android.view.View): androidx.compose.ui.node.RootForTest? {
+        if (view is androidx.compose.ui.node.RootForTest) return view
+        if (view is android.view.ViewGroup) {
+            for (i in 0 until view.childCount) {
+                findComposeRoot(view.getChildAt(i))?.let { return it }
+            }
+        }
+        return null
+    }
+    // --------------------------------------------------------------------------------------
 
     override fun onResume() {
         super.onResume()

@@ -55,6 +55,8 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -176,6 +178,12 @@ fun SeasonTabs(
                     }
                 },
                 modifier = Modifier
+                    .semantics {
+                        onLongClick {
+                            onSeasonLongPress(season)
+                            true
+                        }
+                    }
                     .then(if (isSelected) Modifier.focusRequester(selectedTabFocusRequester) else Modifier)
                     .focusProperties {
                         if (isSelected && downFocusRequester != null) {
@@ -591,6 +599,12 @@ private fun EpisodeCard(
         modifier = Modifier
             .width(cardMetrics.cardWidth)
             .focusRequester(focusRequester)
+            .semantics {
+                onLongClick {
+                    onLongPress()
+                    true
+                }
+            }
             .onFocusChanged {
                 isFocused = it.isFocused
                 if (it.isFocused) {

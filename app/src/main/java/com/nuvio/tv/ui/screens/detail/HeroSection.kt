@@ -49,6 +49,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.semantics.semantics
 import androidx.tv.material3.Border
 import androidx.tv.material3.Button
 import androidx.tv.material3.ButtonDefaults
@@ -372,6 +374,16 @@ private fun PlayButton(
         },
         modifier = Modifier
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+            .then(
+                if (onLongPress != null) {
+                    Modifier.semantics {
+                        onLongClick {
+                            onLongPress()
+                            true
+                        }
+                    }
+                } else Modifier
+            )
             .onFocusChanged {
                 if (it.isFocused) {
                     onFocusRestored()
@@ -511,6 +523,16 @@ private fun ActionIconButton(
         enabled = enabled,
         modifier = Modifier
             .size(NuvioTheme.spacing.xxxl)
+            .then(
+                if (onLongPress != null) {
+                    Modifier.semantics {
+                        onLongClick {
+                            onLongPress()
+                            true
+                        }
+                    }
+                } else Modifier
+            )
             .onFocusChanged { state ->
                 if (state.isFocused) onFocused()
             }

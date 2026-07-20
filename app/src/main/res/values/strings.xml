@@ -1,5 +1,6 @@
 <resources>
-    <string name="app_name">Nuvio</string>
+    <string name="app_name">Nemo</string>
+    <string name="type_anime">Anime</string>
     <string name="tv_channel_continue_watching">Continue Watching</string>
     <string name="type_movie">Movie</string>
     <string name="type_movies">Movies</string>
@@ -1729,6 +1730,10 @@
     <string name="account_unknown_device">Unknown Device</string>
 
     <string name="auth_signin_title">Sign In</string>
+    <string name="auth_email_subtitle">Sign in with your email and password, or create a new account.</string>
+    <string name="auth_email_placeholder">Email</string>
+    <string name="auth_password_placeholder">Password</string>
+    <string name="auth_create_account_btn">Create Account</string>
     <string name="auth_signin_tv_disabled">Email/password entry on TV is disabled. Continue with QR sign in.</string>
     <string name="auth_signin_qr_btn">Continue with QR</string>
 

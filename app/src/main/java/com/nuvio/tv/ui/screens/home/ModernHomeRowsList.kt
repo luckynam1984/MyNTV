@@ -151,6 +151,9 @@ internal fun ModernHomeRowsList(
 
     val density = LocalDensity.current
     val context = LocalContext.current
+    val isTvDevice = remember(context) {
+        context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK)
+    }
     val verticalPrefetchImageLoader = context.imageLoader
 
     LaunchedEffect(verticalPrefetchImageLoader, density) {
@@ -335,7 +338,11 @@ internal fun ModernHomeRowsList(
                         }
                     },
                 ),
-            contentPadding = PaddingValues(bottom = rowsViewportHeight),
+            // On TV a full viewport of bottom padding lets D-pad focus scroll the last row
+            // to the top; on touch devices it would just be a black flingable void.
+            contentPadding = PaddingValues(
+                bottom = if (isTvDevice) rowsViewportHeight else NuvioTheme.spacing.xl
+            ),
             verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xl)
         ) {
             itemsIndexed(
